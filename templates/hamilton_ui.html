@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamilton Path & Circuit Finder</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #09090f;
+    --surface:  #111118;
+    --card:     #16161f;
+    --border:   #2a2a3a;
+    --border2:  #3a3a50;
+    --accent:   #7c6af7;
+    --accent2:  #a78bfa;
+    --green:    #22d3a0;
+    --red:      #f87171;
+    --amber:    #fbbf24;
+    --text:     #e8e8f0;
+    --muted:    #6b6b80;
+    --muted2:   #9898b0;
+    --radius:   12px;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Space Grotesk', sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── layout ─── */
+  .shell {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr 320px;
+    height: 100vh;
+  }
+
+  /* ─── header ─── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    gap: 16px;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent2);
+    letter-spacing: .5px;
+  }
+  .logo span { color: var(--muted); }
+  .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(124,106,247,.15);
+    color: var(--accent2);
+    border: 1px solid rgba(124,106,247,.3);
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .mode-tag {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+  #mode-indicator {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ─── canvas area ─── */
+  .canvas-wrap {
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  .canvas-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: rgba(9,9,15,.8);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity .4s;
+  }
+
+  /* ─── grid dots bg ─── */
+  .canvas-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #2a2a3a 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: .5;
+    pointer-events: none;
+  }
+
+  /* ─── sidebar ─── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
+
+  .section-title {
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* stats row */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent2);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+
+  /* buttons */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--card);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .btn:hover { background: var(--border); border-color: var(--border2); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary {
+    background: rgba(124,106,247,.2);
+    border-color: rgba(124,106,247,.5);
+    color: var(--accent2);
+  }
+  .btn.primary:hover { background: rgba(124,106,247,.3); }
+  .btn.danger {
+    background: rgba(248,113,113,.1);
+    border-color: rgba(248,113,113,.3);
+    color: var(--red);
+  }
+  .btn.danger:hover { background: rgba(248,113,113,.2); }
+  .btn.success {
+    background: rgba(34,211,160,.1);
+    border-color: rgba(34,211,160,.3);
+    color: var(--green);
+  }
+  .btn.success:hover { background: rgba(34,211,160,.2); }
+
+  /* mode toggle */
+  .mode-row {
+    display: flex;
+    gap: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 7px 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .mode-btn.active {
+    background: rgba(124,106,247,.2);
+    color: var(--accent2);
+  }
+
+  /* results */
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .result-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .result-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    word-break: break-all;
+  }
+  .result-val.found { color: var(--green); }
+  .result-val.not-found { color: var(--red); }
+  .result-val.info { color: var(--accent2); }
+  .result-val.warn { color: var(--amber); }
+
+  .theorem-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .theorem-row:last-child { border-bottom: none; }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.green { background: var(--green); }
+  .dot.red   { background: var(--red); }
+  .dot.gray  { background: var(--muted); }
+
+  .no-result {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--mono);
+    padding: 20px 0;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  .degrees-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .deg-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+  }
+  .deg-badge span { color: var(--accent2); }
+
+  .algo-select {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">hamilton<span>.</span>finder <span style="color:var(--border2)">v1.0</span></div>
+    <div class="badge">Graph Theory</div>
+    <div class="badge" style="background:rgba(34,211,160,.1);color:var(--green);border-color:rgba(34,211,160,.3)">Discrete Math</div>
+    <div class="header-right">
+      <span class="mode-tag"><span id="mode-indicator"></span><span id="header-mode">add node</span></span>
+    </div>
+  </header>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="gc"></canvas>
+    <div class="canvas-hint" id="hint">Click to add a node &nbsp;·&nbsp; Select two nodes to add an edge</div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- stats -->
+    <div class="sidebar-section">
+      <div class="section-title">Graph Info</div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-val" id="nodeCount">0</div>
+          <div class="stat-label">Nodes</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="edgeCount">0</div>
+          <div class="stat-label">Edges</div>
+        </div>
+      </div>
+
+      <div class="mode-row">
+        <button class="mode-btn active" id="modeNode" onclick="setMode('node')">+ Node</button>
+        <button class="mode-btn" id="modeEdge" onclick="setMode('edge')">+ Edge</button>
+        <button class="mode-btn" id="modeDel" onclick="setMode('delete')">Delete</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn danger" onclick="clearAll()">✕ Clear</button>
+        <button class="btn" onclick="loadExample()">⬡ Example</button>
+      </div>
+    </div>
+
+    <!-- run -->
+    <div class="sidebar-section">
+      <div class="section-title">Algorithm</div>
+      <div class="algo-select">
+        <button class="btn primary" style="flex:2" onclick="runBacktrack()">▶ Backtracking</button>
+        <button class="btn" onclick="runBrute()">Brute</button>
+      </div>
+      <button class="btn success" style="width:100%" onclick="checkTheorems()">◈ Check Theorems</button>
+    </div>
+
+    <!-- results -->
+    <div class="sidebar-section">
+      <div class="section-title">Results</div>
+      <div id="results">
+        <div class="no-result">Run an algorithm to see results</div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<script>
+const canvas = document.getElementById('gc');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvasWrap');
+
+let nodes    = [];
+let edges    = [];
+let selected = null;
+let mode     = 'node';
+let hamilton = null;
+let isCircuit = false;
+let animFrame = 0;
+
+// ─── resize ───
+function resize() {
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── mode ───
+function setMode(m) {
+  mode = m;
+  selected = null;
+  document.getElementById('modeNode').classList.toggle('active', m==='node');
+  document.getElementById('modeEdge').classList.toggle('active', m==='edge');
+  document.getElementById('modeDel').classList.toggle('active', m==='delete');
+  document.getElementById('header-mode').textContent = m==='node'?'add node': m==='edge'?'add edge':'delete';
+  draw();
+}
+
+// ─── canvas click ───
+canvas.addEventListener('click', e => {
+  const r   = canvas.getBoundingClientRect();
+  const x   = e.clientX - r.left;
+  const y   = e.clientY - r.top;
+  const hit = nodeAt(x, y);
+
+  if (mode === 'node') {
+    if (!hit) {
+      nodes.push({ id: nodes.length, x, y });
+      updateStats();
+    }
+  } else if (mode === 'edge') {
+    if (hit !== null) {
+      if (selected === null) {
+        selected = hit;
+      } else if (selected !== hit) {
+        const u = selected, v = hit;
+        if (!edges.find(e => (e.u===u&&e.v===v)||(e.u===v&&e.v===u))) {
+          edges.push({ u, v });
+          updateStats();
+        }
+        selected = null;
+      } else {
+        selected = null;
+      }
+    } else {
+      selected = null;
+    }
+  } else if (mode === 'delete') {
+    if (hit !== null) {
+      edges = edges.filter(e => e.u!==hit && e.v!==hit);
+      const old = nodes[hit].id;
+      nodes.splice(hit, 1);
+      nodes.forEach((n,i)=>n.id=i);
+      edges = edges.map(e=>({
+        u: e.u > hit ? e.u-1 : e.u,
+        v: e.v > hit ? e.v-1 : e.v
+      }));
+      updateStats();
+    }
+  }
+  hamilton = null;
+  isCircuit = false;
+  draw();
+});
+
+function nodeAt(x, y) {
+  for (let i = nodes.length-1; i>=0; i--) {
+    const n = nodes[i];
+    if (Math.hypot(x-n.x, y-n.y) < 22) return i;
+  }
+  return null;
+}
+
+// ─── draw ───
+function draw() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const pathSet = new Set();
+  if (hamilton) {
+    for (let i=0; i<hamilton.length-1; i++) {
+      pathSet.add(`${hamilton[i]}-${hamilton[i+1]}`);
+      pathSet.add(`${hamilton[i+1]}-${hamilton[i]}`);
+    }
+  }
+
+  // edges
+  edges.forEach(e => {
+    const a = nodes[e.u], b = nodes[e.v];
+    if (!a || !b) return;
+    const key = `${e.u}-${e.v}`;
+    const isPath = pathSet.has(key);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    if (isPath) {
+      ctx.strokeStyle = isCircuit ? '#a78bfa' : '#f87171';
+      ctx.lineWidth = 4;
+    } else {
+      ctx.strokeStyle = '#2a2a3a';
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    if (isPath) {
+      const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+      ctx.beginPath();
+      ctx.arc(mx, my, 3, 0, Math.PI*2);
+      ctx.fillStyle = isCircuit ? '#a78bfa' : '#f87171';
+      ctx.fill();
+    }
+  });
+
+  // nodes
+  nodes.forEach((n, i) => {
+    const isInPath = hamilton && hamilton.includes(i);
+    const isSel    = selected === i;
+    const isStart  = hamilton && hamilton[0] === i;
+    const isEnd    = hamilton && hamilton[hamilton.length-1] === i && !isCircuit;
+
+    const r = 20;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+
+    if (isStart && hamilton) {
+      ctx.fillStyle = '#22d3a0';
+    } else if (isEnd) {
+      ctx.fillStyle = '#f87171';
+    } else if (isCircuit && isInPath) {
+      ctx.fillStyle = 'rgba(167,139,250,.25)';
+    } else if (isInPath) {
+      ctx.fillStyle = 'rgba(248,113,113,.2)';
+    } else if (isSel) {
+      ctx.fillStyle = 'rgba(124,106,247,.35)';
+    } else {
+      ctx.fillStyle = '#16161f';
+    }
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+    if (isSel) {
+      ctx.strokeStyle = '#7c6af7';
+      ctx.lineWidth = 2.5;
+    } else if (isStart && hamilton) {
+      ctx.strokeStyle = '#22d3a0';
+      ctx.lineWidth = 2;
+    } else if (isEnd) {
+      ctx.strokeStyle = '#f87171';
+      ctx.lineWidth = 2;
+    } else if (isInPath) {
+      ctx.strokeStyle = isCircuit ? '#a78bfa' : '#f87171';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = '#3a3a50';
+      ctx.lineWidth = 1.5;
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#e8e8f0';
+    ctx.font = '500 13px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.id, n.x, n.y);
+  });
+
+  // path order labels
+  if (hamilton) {
+    hamilton.forEach((nid, step) => {
+      if (step === hamilton.length-1 && isCircuit) return;
+      const n = nodes[nid];
+      if (!n) return;
+      ctx.fillStyle = step===0 ? '#22d3a0' : (isCircuit ? '#a78bfa' : '#f87171');
+      ctx.font = '500 10px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(step+1, n.x+26, n.y-18);
+    });
+  }
+}
+
+// ─── stats ───
+function updateStats() {
+  document.getElementById('nodeCount').textContent = nodes.length;
+  document.getElementById('edgeCount').textContent = edges.length;
+}
+
+// ─── build adj ───
+function buildAdj() {
+  const n   = nodes.length;
+  const adj = Array.from({length:n}, ()=>Array(n).fill(0));
+  edges.forEach(e => {
+    if (e.u<n && e.v<n) { adj[e.u][e.v]=1; adj[e.v][e.u]=1; }
+  });
+  return adj;
+}
+
+// ─── backtracking ───
+function hamiltonUtil(adj, path, pos, n) {
+  if (pos === n) return true;
+  for (let v=0; v<n; v++) {
+    if (adj[path[pos-1]][v] && !path.slice(0,pos).includes(v)) {
+      path[pos] = v;
+      if (hamiltonUtil(adj, path, pos+1, n)) return true;
+      path[pos] = -1;
+    }
+  }
+  return false;
+}
+
+function findPath(adj, n) {
+  const path = new Array(n).fill(-1);
+  path[0] = 0;
+  if (!hamiltonUtil(adj, path, 1, n)) return null;
+  return path;
+}
+
+function runBacktrack() {
+  const n = nodes.length;
+  if (n < 2) { showResult('error','Need at least 2 nodes'); return; }
+  const adj = buildAdj();
+  const t0  = performance.now();
+  const path = findPath(adj, n);
+  const ms  = (performance.now()-t0).toFixed(2);
+  hamilton  = null; isCircuit = false;
+  if (path) {
+    if (adj[path[n-1]][path[0]]) { hamilton = [...path, path[0]]; isCircuit = true; }
+    else                          { hamilton = path; }
+    showPathResult(path, ms, 'Backtracking');
+  } else {
+    showResult('none', `No Hamilton Path found &nbsp;<span style="color:var(--muted)">(${ms}ms)</span>`);
+  }
+  draw();
+}
+
+// ─── brute force ───
+function permutations(arr) {
+  if (arr.length <= 1) return [arr];
+  const res = [];
+  for (let i=0; i<arr.length; i++) {
+    const rest = [...arr.slice(0,i),...arr.slice(i+1)];
+    permutations(rest).forEach(p => res.push([arr[i],...p]));
+  }
+  return res;
+}
+
+function runBrute() {
+  const n = nodes.length;
+  if (n < 2) { showResult('error','Need at least 2 nodes'); return; }
+  if (n > 10) { showResult('warn',`⚠ Brute Force: ${n} nodes = ${factorial(n).toLocaleString()} permutations. Try Backtracking instead.`); return; }
+  const adj = buildAdj();
+  const t0  = performance.now();
+  let found = null;
+  const perms = permutations([...Array(n).keys()]);
+  for (const p of perms) {
+    let valid = true;
+    for (let i=0; i<p.length-1; i++) { if (!adj[p[i]][p[i+1]]) { valid=false; break; } }
+    if (valid) { found = p; break; }
+  }
+  const ms = (performance.now()-t0).toFixed(2);
+  hamilton = null; isCircuit = false;
+  if (found) {
+    if (adj[found[n-1]][found[0]]) { hamilton=[...found,found[0]]; isCircuit=true; }
+    else                            { hamilton=found; }
+    showPathResult(found, ms, 'Brute Force');
+  } else {
+    showResult('none', `No Hamilton Path found &nbsp;<span style="color:var(--muted)">(${ms}ms)</span>`);
+  }
+  draw();
+}
+
+function factorial(n) { let f=1; for(let i=2;i<=n;i++) f*=i; return f; }
+
+// ─── theorems ───
+function checkTheorems() {
+  const n = nodes.length;
+  if (n < 3) { showResult('error','Need at least 3 nodes'); return; }
+  const adj = buildAdj();
+  const deg = adj.map(row => row.reduce((a,b)=>a+b,0));
+
+  const dirac = deg.every(d => d >= Math.floor(n/2));
+  let ore = true;
+  for (let u=0; u<n && ore; u++) {
+    for (let v=u+1; v<n && ore; v++) {
+      if (!adj[u][v] && deg[u]+deg[v] < n) ore = false;
+    }
+  }
+
+  const isConn = isConnected(adj, n);
+
+  const html = `
+    <div class="result-card">
+      <div class="result-label">Connectivity</div>
+      <div class="theorem-row">
+        <div class="dot ${isConn?'green':'red'}"></div>
+        <span>${isConn ? 'Graph is connected ✓' : 'Graph is disconnected ✗'}</span>
+      </div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Sufficient Conditions</div>
+      <div class="theorem-row">
+        <div class="dot ${dirac?'green':'gray'}"></div>
+        <div>
+          <div style="color:${dirac?'var(--green)':'var(--muted2)'}">Dirac's Theorem</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">min_degree ≥ n/2 → ${dirac?'✓ HOLDS':'✗ fails'}</div>
+        </div>
+      </div>
+      <div class="theorem-row">
+        <div class="dot ${ore?'green':'gray'}"></div>
+        <div>
+          <div style="color:${ore?'var(--green)':'var(--muted2)'}">Ore's Theorem</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">deg(u)+deg(v) ≥ n → ${ore?'✓ HOLDS':'✗ fails'}</div>
+        </div>
+      </div>
+      ${dirac||ore ? `<div style="margin-top:10px;padding:8px;background:rgba(34,211,160,.08);border:1px solid rgba(34,211,160,.2);border-radius:6px;font-size:11px;font-family:var(--mono);color:var(--green)">
+        ✓ Hamilton Circuit is GUARANTEED
+      </div>` : `<div style="margin-top:10px;padding:8px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:6px;font-size:11px;font-family:var(--mono);color:var(--muted2)">
+        No theorem guarantees a circuit
+      </div>`}
+    </div>
+    <div class="result-card">
+      <div class="result-label">Node Degrees</div>
+      <div class="degrees-list">
+        ${deg.map((d,i)=>`<div class="deg-badge">v${i}: <span>${d}</span></div>`).join('')}
+      </div>
+    </div>`;
+  document.getElementById('results').innerHTML = html;
+}
+
+function isConnected(adj, n) {
+  const vis = new Array(n).fill(false);
+  const dfs = v => { vis[v]=true; for(let i=0;i<n;i++) if(adj[v][i]&&!vis[i]) dfs(i); };
+  dfs(0);
+  return vis.every(Boolean);
+}
+
+// ─── results helpers ───
+function showPathResult(path, ms, method) {
+  const n = nodes.length;
+  const pathStr = (isCircuit ? [...path, path[0]] : path).join(' → ');
+  const html = `
+    <div class="result-card">
+      <div class="result-label">Method: ${method} · ${ms}ms</div>
+      <div class="result-val ${isCircuit?'info':'found'}">
+        ${isCircuit ? '⬡ Hamilton Circuit Found' : '→ Hamilton Path Found'}
+      </div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Path sequence</div>
+      <div class="result-val" style="color:var(--text)">${pathStr}</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Legend</div>
+      <div class="theorem-row"><div class="dot green"></div><span>Start node</span></div>
+      ${!isCircuit?`<div class="theorem-row"><div class="dot red"></div><span>End node</span></div>`:''}
+      <div class="theorem-row">
+        <div style="width:20px;height:3px;background:${isCircuit?'var(--accent2)':'var(--red)'}"></div>
+        <span>${isCircuit?'Circuit path':'Path edges'}</span>
+      </div>
+      <div class="theorem-row"><div style="font-family:var(--mono);font-size:11px;color:var(--muted2)">Numbers above nodes = visit order</div></div>
+    </div>`;
+  document.getElementById('results').innerHTML = html;
+}
+
+function showResult(type, msg) {
+  const colors = {error:'var(--red)',warn:'var(--amber)',none:'var(--muted)',info:'var(--accent2)'};
+  document.getElementById('results').innerHTML =
+    `<div class="result-card"><div class="result-val" style="color:${colors[type]||'var(--text)'}">${msg}</div></div>`;
+}
+
+// ─── clear / example ───
+function clearAll() {
+  nodes=[]; edges=[]; selected=null; hamilton=null; isCircuit=false;
+  updateStats(); draw();
+  document.getElementById('results').innerHTML = '<div class="no-result">Run an algorithm to see results</div>';
+}
+
+function loadExample() {
+  clearAll();
+  const cx = canvas.width/2, cy = canvas.height/2, r = Math.min(cx,cy)*0.55;
+  const n = 6;
+  for (let i=0; i<n; i++) {
+    const a = (i/n)*Math.PI*2 - Math.PI/2;
+    nodes.push({ id:i, x: cx+r*Math.cos(a), y: cy+r*Math.sin(a) });
+  }
+  [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,2],[1,3],[2,4],[3,5]].forEach(([u,v])=>edges.push({u,v}));
+  updateStats(); draw();
+}
+</script>
+</body>
+</html>
