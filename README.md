@@ -48,16 +48,5 @@ The program will ask you to enter:
 - Each edge as two numbers (example: `0 1`)
 - Which algorithm to use: Backtracking or Brute Force
 
-**Step 3 — Run the presentation demo (1000-node graph)**
-
-```bash
-python demo.py
-```
-
-No input required. The program automatically generates a 1000-node graph, finds the Hamilton Circuit, and opens a visualization window.
-
-To change the graph size, edit line 9 in `demo.py`:
-
-```python
-N = 1000   # change this number
+*
 ```
