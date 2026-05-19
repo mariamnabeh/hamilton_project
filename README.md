@@ -47,4 +47,3 @@ The program will ask you to enter:
 - Number of edges
 - Each edge as two numbers (example: `0 1`)
 - Which algorithm to use: Backtracking or Brute Force
-
