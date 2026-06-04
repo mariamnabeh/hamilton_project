@@ -49,7 +49,3 @@ The program will ask you to enter:
 - Which algorithm to use: Backtracking or Brute Force
 
 
-
-
-N = 1000   # change this number
-```
