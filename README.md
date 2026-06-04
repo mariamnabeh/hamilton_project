@@ -30,13 +30,13 @@ The project is divided across 5 team members, each responsible for one module:
 
 ## How to Run Your Code
 
-**Step 1 — Install the required libraries**
+**Install the required libraries**
 
 ```bash
 pip install networkx matplotlib
 ```
 
-**Step 2 — Run the interactive program**
+**Run the interactive program**
 
 ```bash
 python main.py
